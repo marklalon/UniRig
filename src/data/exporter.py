@@ -4,6 +4,8 @@ from typing import List, Union, Tuple
 from collections import defaultdict
 import os
 
+from .bpy_bridge import export_fbx_via_bpy_env, export_render_via_bpy_env
+
 try:
     import open3d as o3d
     OPEN3D_EQUIPPED = True
@@ -345,6 +347,27 @@ class Exporter():
         '''
         Requires bpy installed
         '''
+        if os.environ.get("UNIRIG_BPY_WORKER") != "1":
+            self._safe_make_dir(path)
+            export_fbx_via_bpy_env(
+                path=path,
+                vertices=vertices,
+                joints=joints,
+                skin=skin,
+                parents=parents,
+                names=names,
+                faces=faces,
+                extrude_size=extrude_size,
+                group_per_vertex=group_per_vertex,
+                add_root=add_root,
+                do_not_normalize=do_not_normalize,
+                use_extrude_bone=use_extrude_bone,
+                use_connect_unique_child=use_connect_unique_child,
+                extrude_from_parent=extrude_from_parent,
+                tails=tails,
+            )
+            return
+
         import bpy # type: ignore
         self._safe_make_dir(path)
         self._clean_bpy()
@@ -376,6 +399,17 @@ class Exporter():
         bones: Union[ndarray, None],
         resolution: Tuple[float, float]=[256, 256],
     ):
+        if os.environ.get("UNIRIG_BPY_WORKER") != "1":
+            self._safe_make_dir(path)
+            export_render_via_bpy_env(
+                path=path,
+                vertices=vertices,
+                faces=faces,
+                bones=bones,
+                resolution=resolution,
+            )
+            return
+
         import bpy # type: ignore
         import bpy_extras # type: ignore
         from mathutils import Vector # type: ignore

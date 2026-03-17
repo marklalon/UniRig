@@ -3,6 +3,7 @@ from torch import nn, FloatTensor, LongTensor
 import numpy as np
 from torch.nn.functional import pad
 from typing import Dict, List, Union
+from pathlib import Path
 from transformers import AutoModelForCausalLM, AutoConfig, LogitsProcessor, LogitsProcessorList
 
 from .spec import ModelSpec, ModelInput
@@ -48,7 +49,21 @@ class UniRigAR(ModelSpec):
         
         _d = llm.copy()
         _d['vocab_size'] = self.tokenizer.vocab_size
-        llm_config = AutoConfig.from_pretrained(**_d)
+        
+        # Support local_files_only for offline loading
+        # If pretrained_model_name_or_path is a local path, use local_files_only=True
+        model_name_or_path = _d.get('pretrained_model_name_or_path', _d.get('_name_or_path', ''))
+        local_files_only = False
+        if model_name_or_path and (Path(model_name_or_path).exists() or (Path(__file__).parent.parent.parent / model_name_or_path).exists()):
+            # Convert relative path to absolute if needed
+            if not Path(model_name_or_path).is_absolute():
+                repo_root = Path(__file__).parent.parent.parent.resolve()
+                local_path = repo_root / model_name_or_path
+                if local_path.exists():
+                    _d['pretrained_model_name_or_path'] = str(local_path)
+            local_files_only = True
+        
+        llm_config = AutoConfig.from_pretrained(**_d, local_files_only=local_files_only)
         # Force float32 precision for the model
         llm_config.torch_dtype = torch.float32
         # Force enable pre_norm

@@ -16,7 +16,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 cmd=" \
-    python -m src.inference.merge \
+    python bpy_wrapper.py --module src.inference.merge -- \
     --require_suffix=$require_suffix \
     --num_runs=1 \
     --id=0 \

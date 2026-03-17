@@ -33,7 +33,7 @@ time=$(date "+%Y_%m_%d_%H_%M_%S")
 for (( i=0; i<num_runs; i++ ))
 do
     cmd=" \
-    python -m src.data.extract \
+    python bpy_wrapper.py --module src.data.extract -- \
     --config=$config \
     --require_suffix=$require_suffix \
     --force_override=$force_override \

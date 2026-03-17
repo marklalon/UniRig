@@ -1,4 +1,4 @@
-import bpy, os
+import os
 from collections import defaultdict
 from tqdm import tqdm
 import numpy as np
@@ -16,7 +16,20 @@ import os
 from .log import new_entry, add_error, add_warning, new_log, end_log
 from .raw_data import RawData
 
+try:
+    import bpy  # type: ignore
+except Exception:
+    bpy = None
+
+
+def _require_bpy():
+    if bpy is None:
+        raise RuntimeError(
+            "bpy is not available in current environment. Run bpy-dependent workflows via D:/AI/.bpy_env wrapper."
+        )
+
 def load(filepath: str):
+    _require_bpy()
     old_objs = set(bpy.context.scene.objects)
     
     if not os.path.exists(filepath):
@@ -80,6 +93,7 @@ def load(filepath: str):
 
 # remove all data in bpy
 def clean_bpy():
+    _require_bpy()
     # First try to purge orphan data
     try:
         bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
@@ -118,6 +132,7 @@ def clean_bpy():
     gc.collect()
 
 def get_arranged_bones(armature):
+    _require_bpy()
     matrix_world = armature.matrix_world
     arranged_bones = []
     root = armature.pose.bones[0]
@@ -140,6 +155,7 @@ def get_arranged_bones(armature):
     return arranged_bones
 
 def process_mesh(arranged_bones=None):
+    _require_bpy()
     meshes = []
     for v in bpy.data.objects:
         if v.type == 'MESH':
@@ -279,6 +295,7 @@ def process_armature(
     armature,
     arranged_bones,
 ) -> Tuple[np.ndarray, np.ndarray]:
+    _require_bpy()
     matrix_world = armature.matrix_world
     index = {}
 
@@ -388,6 +405,7 @@ def extract_builtin(
     time: str,
     files: List[Union[str, str]],
 ):
+    _require_bpy()
     log_path = "./logs"
     log_path = os.path.join(log_path, time)
 

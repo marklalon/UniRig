@@ -18,11 +18,22 @@ from scipy.spatial import cKDTree
 import open3d as o3d
 import itertools
 
-import bpy
-from mathutils import Vector
+try:
+    import bpy  # type: ignore
+    from mathutils import Vector  # type: ignore
+except Exception:
+    bpy = None
+    Vector = None
 
 from ..data.raw_data import RawData, RawSkin
 from ..data.extract import process_mesh, process_armature, get_arranged_bones
+
+
+def _require_bpy():
+    if bpy is None:
+        raise RuntimeError(
+            "bpy is not available in current environment. Run merge via D:/AI/.bpy_env wrapper."
+        )
 
 def parser():
     parser = argparse.ArgumentParser()
@@ -32,6 +43,7 @@ def parser():
     return parser.parse_args()
 
 def clean_bpy():
+    _require_bpy()
     for c in bpy.data.actions:
         bpy.data.actions.remove(c)
     for c in bpy.data.armatures:
@@ -52,6 +64,7 @@ def clean_bpy():
         bpy.data.textures.remove(c)
 
 def load(filepath: str, return_armature: bool=False):
+    _require_bpy()
     if return_armature:
         old_objs = set(bpy.context.scene.objects)
 
@@ -207,6 +220,7 @@ def make_armature(
     add_root: bool=False,
     is_vrm: bool=False,
 ):
+    _require_bpy()
     context = bpy.context
     
     mesh_vertices = []
@@ -353,6 +367,7 @@ def merge(
     '''
     Merge skin and bone into original file.
     '''
+    _require_bpy()
     clean_bpy()
     try:
         load(path)
@@ -427,6 +442,7 @@ def parse():
     return parser.parse_args()
 
 def transfer(source: str, target: str, output: str, add_root: bool=False):
+    _require_bpy()
     clean_bpy()
     try:
         armature = load(filepath=source, return_armature=True)

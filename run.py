@@ -12,6 +12,10 @@ import numpy as np
 from lightning.pytorch.strategies import FSDPStrategy, DDPStrategy
 from src.inference.download import download
 
+# Allow Box class for PyTorch 2.6+ weights_only=True checkpoint loading
+import torch.serialization
+torch.serialization.add_safe_globals([Box])
+
 from src.data.asset import Asset
 from src.data.extract import get_files
 from src.data.dataset import UniRigDatasetModule, DatasetConfig, ModelInput

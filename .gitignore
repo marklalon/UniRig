@@ -25,6 +25,7 @@ datalist/
 dataset_inference/
 dataset_inference_clean/
 feature_viz/
+models/
 
 # Distribution / packaging
 dist/

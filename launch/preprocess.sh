@@ -30,7 +30,7 @@ time=$(date "+%Y_%m_%d_%H_%M_%S")
 
 for (( i=0; i<num_runs; i++ ))
 do
-    python3.11 -m src.data.extract "--config=$config" "--require_suffix=$require_suffix" "--force_override=$force_override" "--num_runs=$num_runs" "--id=$i" "--time=$time" "--faces_target_count=$faces_target_count" &
+    python bpy_wrapper.py --module src.data.extract -- "--config=$config" "--require_suffix=$require_suffix" "--force_override=$force_override" "--num_runs=$num_runs" "--id=$i" "--time=$time" "--faces_target_count=$faces_target_count" &
 done
 
 wait
