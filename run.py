@@ -62,6 +62,15 @@ if __name__ == "__main__":
                         help="class name")
     parser.add_argument("--data_name", type=nullable_string, required=False, default=None,
                         help="npz filename from skeleton phase")
+    # 骨骼生成质量参数覆盖
+    parser.add_argument("--num_beams", type=int, required=False, default=None,
+                        help="beam search 数量，越大质量越高但越慢")
+    parser.add_argument("--max_new_tokens", type=int, required=False, default=None,
+                        help="最大生成 token 数")
+    parser.add_argument("--repetition_penalty", type=float, required=False, default=None,
+                        help="重复惩罚")
+    parser.add_argument("--do_sample", type=lambda x: x.lower() == 'true', required=False, default=None,
+                        help="是否采样 (true/false)")
     args = parser.parse_args()
     
     L.seed_everything(args.seed, workers=True)
@@ -173,6 +182,7 @@ if __name__ == "__main__":
     writer_config = task.get('writer', None)
     if writer_config is not None:
         assert predict_transform_config is not None, 'missing predict_transform_config in transform'
+        # 如果指定了 --output_dir 或 --output，使用 user_mode
         if args.output_dir is not None or args.output is not None:
             if args.output is not None:
                 assert args.output.endswith('.fbx'), 'output must be .fbx'
@@ -180,6 +190,10 @@ if __name__ == "__main__":
             writer_config['output_dir'] = args.output_dir
             writer_config['output_name'] = args.output
             writer_config['user_mode'] = True
+        else:
+            # 没有 --output_dir 时，使用 --npz_dir 作为输出目录（确保输出到临时目录）
+            if args.npz_dir is not None:
+                writer_config['output_dir'] = args.npz_dir
         callbacks.append(get_writer(**writer_config, order_config=predict_transform_config.order_config))
     
     # get trainer
@@ -195,6 +209,16 @@ if __name__ == "__main__":
     system_config = task.components.get('system', None)
     if system_config is not None:
         system_config = load('system', os.path.join('configs/system', system_config))
+        # 覆盖 generate_kwargs（骨骼生成质量参数）
+        if 'generate_kwargs' in system_config:
+            if args.num_beams is not None:
+                system_config['generate_kwargs']['num_beams'] = args.num_beams
+            if args.max_new_tokens is not None:
+                system_config['generate_kwargs']['max_new_tokens'] = args.max_new_tokens
+            if args.repetition_penalty is not None:
+                system_config['generate_kwargs']['repetition_penalty'] = args.repetition_penalty
+            if args.do_sample is not None:
+                system_config['generate_kwargs']['do_sample'] = args.do_sample
         system = get_system(
             **system_config,
             model=model,

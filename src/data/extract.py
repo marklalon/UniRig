@@ -513,6 +513,9 @@ def get_files(
             file_name = file.removeprefix("./")
             # remove suffix
             file_name = '.'.join(file_name.split('.')[:-1])
+            # 如果是绝对路径，只取文件名（不含目录）
+            if os.path.isabs(file_name):
+                file_name = os.path.basename(file_name)
             output_dir = os.path.join(output_dataset_dir, file_name)
             raw_data_npz = os.path.join(output_dir, data_name)
             if not force_override and os.path.exists(raw_data_npz):
