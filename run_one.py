@@ -23,6 +23,7 @@ UniRig 一键推理脚本：输入模型 → 输出带骨骼蒙皮的模型
 """
 
 import argparse
+import hashlib
 import os
 import subprocess
 import sys
@@ -46,14 +47,34 @@ def run_command(cmd: list, desc: str = ""):
     return result
 
 
+def find_expected_file_or_die(path: Path, desc: str):
+    if path.exists():
+        print(f"[信息] 找到{desc}: {path}")
+        return
+
+    parent = path.parent
+    print(f"[错误] 未找到{desc}: {path}")
+    if parent.exists():
+        candidates = sorted(parent.glob("*.fbx"))
+        if candidates:
+            print("[调试] 同目录 FBX 文件:")
+            for candidate in candidates:
+                print(f"  - {candidate}")
+        else:
+            print(f"[调试] 目录中没有 FBX 文件: {parent}")
+    else:
+        print(f"[调试] 目录不存在: {parent}")
+    sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="UniRig 一键推理：输入模型，输出带骨骼蒙皮的模型"
     )
     parser.add_argument("--input", type=str, required=True,
                         help="输入文件路径 (支持 obj, fbx, glb, gltf, dae, vrm)")
-    parser.add_argument("--output", type=str, required=True,
-                        help="输出文件路径 (支持 fbx, glb, gltf)")
+    parser.add_argument("--output", type=str, required=False, default=None,
+                        help="输出文件路径 (默认为 input_rigged.ext，支持 fbx, glb, gltf)")
     parser.add_argument("--tmp_dir", type=str, default="tmp",
                         help="临时文件目录，默认 tmp")
     parser.add_argument("--seed", type=int, default=12345,
@@ -82,14 +103,22 @@ def main():
                         help="蒙皮预测任务配置")
     
     args = parser.parse_args()
-    
+
+    # 先按调用目录解析用户路径，避免 chdir 改变相对路径语义
+    launch_cwd = Path.cwd()
+
     # 确定工作目录
     workspace = Path(__file__).parent.absolute()
     os.chdir(workspace)
+
+    # 解析输入路径
+    input_path = (launch_cwd / args.input).resolve() if not Path(args.input).is_absolute() else Path(args.input).resolve()
     
-    # 解析输入输出路径
-    input_path = Path(args.input).absolute()
-    output_path = Path(args.output).absolute()
+    # 如果未指定输出，默认为 input_rigged.ext
+    if args.output is None:
+        output_path = input_path.parent / f"{input_path.stem}_rigged{input_path.suffix}"
+    else:
+        output_path = (launch_cwd / args.output).resolve() if not Path(args.output).is_absolute() else Path(args.output).resolve()
     
     # 检查输入文件是否存在
     if not input_path.exists():
@@ -100,7 +129,7 @@ def main():
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     # 创建临时目录（绝对路径，确保不污染输入输出目录）
-    tmp_dir = Path(args.tmp_dir).absolute()
+    tmp_dir = (launch_cwd / args.tmp_dir).resolve() if not Path(args.tmp_dir).is_absolute() else Path(args.tmp_dir).resolve()
     tmp_dir.mkdir(parents=True, exist_ok=True)
     
     # 获取输入文件信息
@@ -122,8 +151,9 @@ def main():
         print(f"支持的格式: {', '.join(supported_output)}")
         sys.exit(1)
     
-    # 创建本次任务的临时子目录
-    task_tmp = tmp_dir / f"run_one_{input_name}"
+    # 创建本次任务的临时子目录，附加输入路径哈希以避免同名文件冲突
+    input_hash = hashlib.sha1(str(input_path).encode("utf-8")).hexdigest()[:8]
+    task_tmp = tmp_dir / f"run_one_{input_name}_{input_hash}"
     task_tmp.mkdir(parents=True, exist_ok=True)
     
     print("\n" + "="*60)
@@ -183,29 +213,9 @@ def main():
     run_command(skin_cmd, "步骤3/4: 预测蒙皮")
     
     # ========== 步骤4: 合并纹理（保留原始材质）==========
-    # 查找预测结果文件（现在应该在临时目录下）
+    # 显式检查预测结果路径：Skin writer 在 user_mode 下应输出 result_fbx.fbx
     predicted_fbx = task_tmp / input_name / "result_fbx.fbx"
-    
-    if not predicted_fbx.exists():
-        # 备选路径
-        alt_paths = [
-            task_tmp / input_name / "predict.fbx",
-            task_tmp / input_name / "skeleton.fbx",
-        ]
-        for p in alt_paths:
-            if p.exists():
-                predicted_fbx = p
-                print(f"[信息] 找到预测结果: {p}")
-                break
-        else:
-            print(f"[错误] 未找到预测结果 FBX 文件")
-            print(f"[调试] 搜索路径:")
-            print(f"  - {task_tmp / input_name / 'result_fbx.fbx'}")
-            print(f"  - {task_tmp / input_name / 'predict.fbx'}")
-            print(f"  - {task_tmp / input_name / 'skeleton.fbx'}")
-            sys.exit(1)
-    else:
-        print(f"[信息] 找到预测结果: {predicted_fbx}")
+    find_expected_file_or_die(predicted_fbx, "预测结果 FBX")
     
     # 使用 transfer 合并：source=预测结果，target=原始模型
     merge_cmd = [

@@ -286,7 +286,7 @@ class SkinWriter(BasePredictionWriter):
                         if self.output_name is not None:
                             path = self.output_name
                         else:
-                            path = make_path(self.save_name, 'fbx', trim=True)
+                            path = make_path(self.export_fbx, 'fbx', trim=True)
                     else:
                         path = make_path(self.export_fbx, 'fbx')
                     exporter._export_fbx(

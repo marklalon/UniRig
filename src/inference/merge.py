@@ -443,13 +443,14 @@ def parse():
 
 def transfer(source: str, target: str, output: str, add_root: bool=False):
     _require_bpy()
+    if output is None:
+        raise ValueError("output is required when using --source/--target mode")
     clean_bpy()
     try:
         armature = load(filepath=source, return_armature=True)
         assert armature is not None
     except Exception as e:
-        print(f"failed to load {source}")
-        return
+        raise RuntimeError(f"failed to load source armature: {source}") from e
 
     vertices, faces, skin = process_mesh()
     arranged_bones = get_arranged_bones(armature)
@@ -474,7 +475,11 @@ if __name__ == "__main__":
     
     if args.source is not None or args.target is not None:
         assert args.source is not None and args.target is not None
-        transfer(args.source, args.target, args.output, args.add_root)
+        try:
+            transfer(args.source, args.target, args.output, args.add_root)
+        except Exception as e:
+            print(f"merge transfer failed: {e}")
+            exit(1)
         exit()
 
     data_config     = Box(yaml.safe_load(open(args.data_config, "r")))
